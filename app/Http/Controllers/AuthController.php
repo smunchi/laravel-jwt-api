@@ -6,9 +6,17 @@ use Illuminate\Http\Request;
 use Auth;
 use Validator;
 use App\Models\User;
+use App\Repository\Users\UserRepository;
 
 class AuthController extends Controller
 {
+    private $userRepository;
+
+    public function __construct(userRepository $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
+
     /**
      * Register a new user
      */
@@ -28,11 +36,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = new User();
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->password = bcrypt($request->password);
-        $user->save();
+        $this->userRepository->store($request);
         
         return response()->json(['status' => 'success'], 200);
     }
@@ -43,10 +47,12 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->only('email', 'password');
+
         if ($token = $this->guard()->attempt($credentials)) {
             return response()->json(['status' => 'success'], 200)->header('Authorization', $token);
         }
-        return response()->json(['error' => 'login_error'], 401);
+
+        return response()->json(['error' => $credentials], 401);
     }
 
     /**
@@ -67,7 +73,7 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        $user = User::find(Auth::user()->id);
+        $user = $this->userRepository->find(Auth::user()->id);
         
         return response()->json([
             'status' => 'success',
